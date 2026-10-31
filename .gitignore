@@ -1,0 +1,29 @@
+# 虚拟环境和缓存
+.venv/
+.idea/
+__pycache__/
+*.pyc
+
+# 敏感配置文件
+.env
+
+# 不相关的文件夹和模型
+.想法/
+*.pt
+
+# 无关的测试脚本（把你截图里不要的全都写上）
+shengt.py
+xin.py
+xunzhuan.py
+yanhua.py
+yolov8.py
+zufu.py
+Mid.py
+huaa.py
+install.py
+jinli.py
+njwftxr.py
+pythonf.py
+pythons.py
+# created by virtualenv automatically
+*
