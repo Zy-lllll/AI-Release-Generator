@@ -130,22 +130,25 @@ cloudflared tunnel --url http://localhost:8000
 | 变量 | 必填 | 说明 |
 |---|---|---|
 | `GITHUB_TOKEN` | 建议 | GitHub PAT，未配置时每小时仅 60 次请求 |
-| `AI_API_KEY` | 是 | 大模型密钥 |
-| `AI_PROVIDER` | 否 | 一行切换供应商：`deepseek`（默认）/ `zhipu` / `zhipu-lite` / `zhipu-pro` / `qwen` |
-| `AI_BASE_URL` | 否 | 覆盖预设接口地址（任意兼容 OpenAI 协议的服务） |
-| `AI_MODEL` | 否 | 覆盖预设模型名 |
+| `AI_API_KEY` | 是 | AI API Key，智谱 / DeepSeek 等任意一家，填一个就能用 |
+| `AI_PROVIDER` | 否 | 一行切换供应商，默认 `zhipu`：`deepseek` / `zhipu` / `zhipu-lite` / `zhipu-pro` / `qwen` |
+| `AI_BASE_URL` | 否 | 只接非预设服务时才用；写了 `AI_PROVIDER` 时以预设为准 |
+| `AI_MODEL` | 否 | 同上 |
 | `AI_DISABLE_THINKING` | 否 | 默认 1，推理类模型关掉思考（更快、不吃 token） |
 | `AI_RETRY` | 否 | 免费档「访问量过大」时的自动重试次数，默认 2 |
 | `AI_RATE_LIMIT` | 否 | 单 IP 每小时 AI 生成次数，默认 20 |
 | `DEFAULT_LIMIT` / `MAX_LIMIT` | 否 | 默认 / 最大提交条数（8 / 30） |
 | `CACHE_TTL` | 否 | 提交列表缓存秒数，默认 300 |
 
-### 用免费的智谱 GLM
+### 用免费的智谱 GLM（默认）
+
+只要填一个 AI API Key 就能跑，其余不用配：
 
 ```env
-AI_PROVIDER=zhipu          # 自动使用 https://open.bigmodel.cn/api/paas/v4 + glm-4.7-flash
 AI_API_KEY=你的智谱Key      # 在 open.bigmodel.cn → API Keys 创建
 ```
+
+想显式写出来也行：`AI_PROVIDER=zhipu`（等价于默认）。换 DeepSeek 只改这一行 `AI_PROVIDER=deepseek`。
 
 申请：<https://open.bigmodel.cn/usercenter/apikeys> 注册（需手机号）→ 创建 API Key，不用绑卡。
 

@@ -102,7 +102,7 @@ def _call_model(payload: dict[str, Any]) -> dict[str, Any]:
             return resp.json()
 
         if resp.status_code == 401:
-            raise AIError("大模型密钥无效，请检查 .env 中的 AI_API_KEY。")
+            raise AIError("AI API Key 无效，请检查配置里的 AI_API_KEY（智谱或 DeepSeek 的 Key 都可以）。")
         if resp.status_code == 402:
             raise AIError("大模型账户余额不足，请充值后重试。")
 
@@ -127,7 +127,7 @@ def _call_model(payload: dict[str, Any]) -> dict[str, Any]:
 
 def generate_release_notes(commits: list[dict[str, Any]], repo_name: str = "") -> dict[str, str]:
     if not config.AI_API_KEY:
-        raise AIError("服务端未配置 AI_API_KEY，请在 .env 中填入大模型密钥。")
+        raise AIError("服务端未配置 AI API Key，请在 .env 或平台环境变量里填入 AI_API_KEY（智谱、DeepSeek 等任意一家均可）。")
     if not commits:
         raise AIError("没有可总结的更新记录。")
 

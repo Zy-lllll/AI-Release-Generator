@@ -28,12 +28,16 @@ PROVIDER_PRESETS: dict[str, tuple[str, str]] = {
     "qwen": ("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
 }
 
-AI_PROVIDER = _env("AI_PROVIDER", "deepseek").lower()
-_default_base, _default_model = PROVIDER_PRESETS.get(
-    AI_PROVIDER, PROVIDER_PRESETS["deepseek"]
-)
-AI_BASE_URL = (_env("AI_BASE_URL") or _default_base).rstrip("/")
-AI_MODEL = _env("AI_MODEL") or _default_model
+# 选供应商：写一行 AI_PROVIDER 就用该家预设的接口+模型（旧的 AI_MODEL 不会再干扰）；
+# 一行都不写则默认智谱免费档；要接非预设的服务，手写 AI_BASE_URL + AI_MODEL。
+_provider = _env("AI_PROVIDER").lower()
+if _provider in PROVIDER_PRESETS:
+    AI_PROVIDER = _provider
+    AI_BASE_URL, AI_MODEL = PROVIDER_PRESETS[_provider]
+else:
+    AI_PROVIDER = _provider or ("custom" if (_env("AI_BASE_URL") or _env("AI_MODEL")) else "zhipu")
+    AI_BASE_URL = (_env("AI_BASE_URL") or PROVIDER_PRESETS["zhipu"][0]).rstrip("/")
+    AI_MODEL = _env("AI_MODEL") or PROVIDER_PRESETS["zhipu"][1]
 AI_TIMEOUT = int(_env("AI_TIMEOUT", "120"))
 AI_RETRY = int(_env("AI_RETRY", "2"))                    # 免费档偶发「访问量过大」时重试
 AI_DISABLE_THINKING = _env("AI_DISABLE_THINKING", "1") not in ("0", "false", "False", "")
