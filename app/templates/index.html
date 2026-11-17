@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>发版说明生成器 · GitHub 更新一键成稿</title>
+<meta name="description" content="输入 GitHub 仓库，一键生成面向开发者、产品经理、普通用户的中文发版说明。">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="发版说明">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta property="og:title" content="发版说明生成器">
+<meta property="og:description" content="输入 GitHub 仓库，一键生成开发者 / 产品经理 / 普通用户三种视角的中文发版说明。">
+<meta property="og:type" content="website">
+<link rel="icon" href="/static/icons/icon-192.png">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">🚀</div>
+      <div class="brand-text">
+        <h1>发版说明生成器</h1>
+        <p>GitHub 更新 → 三种视角的中文发版稿</p>
+      </div>
+    </div>
+    <button id="installBtn" class="ghost-btn" hidden>安装</button>
+  </header>
+
+  <main>
+    <section class="card input-card">
+      <div class="repo-inputs">
+        <label class="field">
+          <span>用户名 / 组织</span>
+          <input id="ownerInput" type="text" inputmode="text" autocomplete="off"
+                 value="tiangolo" placeholder="例如 facebook">
+        </label>
+        <span class="slash">/</span>
+        <label class="field">
+          <span>仓库名</span>
+          <input id="repoInput" type="text" inputmode="text" autocomplete="off"
+                 value="fastapi" placeholder="例如 react">
+        </label>
+      </div>
+
+      <div class="presets" id="presets">
+        <button class="chip" data-owner="tiangolo" data-repo="fastapi">fastapi</button>
+        <button class="chip" data-owner="pandas-dev" data-repo="pandas">pandas</button>
+        <button class="chip" data-owner="vuejs" data-repo="core">vue</button>
+        <button class="chip" data-owner="ollama" data-repo="ollama">ollama</button>
+        <button class="chip" data-owner="langchain-ai" data-repo="langchain">langchain</button>
+      </div>
+
+      <div class="row-between">
+        <div class="seg" id="limitSeg" role="group" aria-label="更新条数">
+          <button class="seg-btn active" data-limit="8">8 条</button>
+          <button class="seg-btn" data-limit="15">15 条</button>
+          <button class="seg-btn" data-limit="30">30 条</button>
+        </div>
+        <button id="fetchBtn" class="btn primary">获取更新</button>
+      </div>
+    </section>
+
+    <section id="guideCard" class="card guide">
+      <h2>三步生成一份发版说明</h2>
+      <ol class="steps">
+        <li><span class="num">1</span><div><b>选仓库</b><span>填 GitHub 用户名和仓库名，也可以直接粘贴 owner/repo 或点上面的快捷标签</span></div></li>
+        <li><span class="num">2</span><div><b>拉更新</b><span>自动过滤机器人、依赖升级、合并提交，只留下真正有价值的记录</span></div></li>
+        <li><span class="num">3</span><div><b>出稿</b><span>一次生成开发者 / 产品经理 / 普通用户三个版本，可复制、可分享</span></div></li>
+      </ol>
+    </section>
+
+    <section id="repoCard" class="card repo-card" hidden>
+      <img id="repoAvatar" class="repo-avatar" alt="" src="">
+      <div class="repo-meta">
+        <div class="repo-name" id="repoName">—</div>
+        <div class="repo-desc" id="repoDesc"></div>
+        <div class="repo-stats" id="repoStats"></div>
+      </div>
+    </section>
+
+    <section id="commitsCard" class="card" hidden>
+      <div class="section-head">
+        <h2>更新记录 <span class="count-pill" id="commitCount">0</span></h2>
+        <button class="link-btn" id="toggleCommits">展开</button>
+      </div>
+      <p class="hint">已自动过滤机器人提交、依赖升级等无效记录</p>
+      <div class="commit-list" id="commitList" hidden></div>
+    </section>
+
+    <button id="generateBtn" class="btn gradient big" hidden>✨ 生成三种发版说明</button>
+
+    <section id="resultCard" class="card result-card" hidden>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-key="dev">👨‍💻 开发者</button>
+        <button class="tab" data-key="pm">📊 产品经理</button>
+        <button class="tab" data-key="user">🙋 普通用户</button>
+      </div>
+      <div class="result-actions">
+        <button class="pill-btn" id="copyBtn">复制</button>
+        <button class="pill-btn" id="shareBtn">分享</button>
+        <button class="pill-btn" id="regenBtn">重新生成</button>
+      </div>
+      <article id="aiContent" class="markdown"></article>
+    </section>
+
+    <p class="footer-tip">
+      📱 手机上点浏览器菜单 →「添加到主屏幕」，即可像 App 一样打开
+    </p>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="loading" class="loading-mask" hidden>
+    <div class="spinner"></div>
+    <p id="loadingText">正在处理…</p>
+  </div>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/marked/9.1.6/marked.min.js"
+        onerror="window.__markedFailed=true"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
