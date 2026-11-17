@@ -131,23 +131,39 @@ cloudflared tunnel --url http://localhost:8000
 |---|---|---|
 | `GITHUB_TOKEN` | 建议 | GitHub PAT，未配置时每小时仅 60 次请求 |
 | `AI_API_KEY` | 是 | 大模型密钥 |
-| `AI_BASE_URL` | 否 | 默认 `https://api.deepseek.com`，可换成任意兼容 OpenAI 协议的服务 |
-| `AI_MODEL` | 否 | 默认 `deepseek-chat` |
+| `AI_PROVIDER` | 否 | 一行切换供应商：`deepseek`（默认）/ `zhipu` / `zhipu-pro` / `qwen` |
+| `AI_BASE_URL` | 否 | 覆盖预设接口地址（任意兼容 OpenAI 协议的服务） |
+| `AI_MODEL` | 否 | 覆盖预设模型名 |
 | `AI_RATE_LIMIT` | 否 | 单 IP 每小时 AI 生成次数，默认 20 |
 | `DEFAULT_LIMIT` / `MAX_LIMIT` | 否 | 默认 / 最大提交条数（8 / 30） |
 | `CACHE_TTL` | 否 | 提交列表缓存秒数，默认 300 |
 
-换模型示例（通义千问）：
+### 用免费的智谱 GLM
+
 ```env
-AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-AI_MODEL=qwen-plus
+AI_PROVIDER=zhipu          # 自动使用 https://open.bigmodel.cn/api/paas/v4 + glm-4.5-flash
+AI_API_KEY=你的智谱Key      # 在 open.bigmodel.cn → API Keys 创建
 ```
+
+申请：<https://open.bigmodel.cn/usercenter/apikeys> 注册（需手机号）→ 创建 API Key，不用绑卡。
+
+免费额度是 `glm-4.5-flash`（128K 上下文）和 `glm-4.7-flash`（200K），**限 1 并发**：
+个人用没问题，多人同时点「生成」时后面的请求会排队/失败。
+
+切换供应商对照：
+
+| `AI_PROVIDER` | 接口 | 模型 | 备注 |
+|---|---|---|---|
+| `deepseek` | api.deepseek.com | deepseek-chat | 便宜稳定，默认 |
+| `zhipu` | open.bigmodel.cn/api/paas/v4 | glm-4.5-flash | **免费** |
+| `zhipu-pro` | 同上 | glm-4.6 | 付费，质量更接近旗舰 |
+| `qwen` | dashscope 兼容模式 | qwen-plus | 阿里云百炼 |
 
 ## 8. 接口
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/health` | 健康检查，返回密钥是否就绪 |
+| GET | `/api/health` | 健康检查，返回密钥是否就绪、当前供应商与模型 |
 | GET | `/api/commits?owner=&repo=&limit=` | 仓库信息 + 过滤后的提交 |
 | POST | `/api/summary` | 入参 `{owner, repo, limit, commits?}`，返回 `{dev, pm, user}` |
 
@@ -169,6 +185,9 @@ A：大模型生成需要 10–30 秒，属正常；接口已加 90 秒超时。
 
 **Q：提示「找不到仓库」？**
 A：私有仓库必须配置有 `repo` 权限的 `GITHUB_TOKEN`；公开仓库检查用户名/仓库名拼写。
+
+**Q：用智谱免费模型时提示超时或失败？**
+A：免费档限 1 并发，前一个请求没结束再来一个就会排队。等几秒重试即可；多人共用建议换 `deepseek`。
 
 **Q：生成内容不完整？**
 A：点「重新生成」；或把提交条数调小（8 条）让模型更聚焦。

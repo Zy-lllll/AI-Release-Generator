@@ -16,5 +16,8 @@ services:
         value: https://api.deepseek.com
       - key: AI_MODEL
         value: deepseek-chat
+      # 想用智谱免费额度：把上面两行删掉，改成
+      #   - key: AI_PROVIDER
+      #     value: zhipu
       - key: AI_RATE_LIMIT
         value: "20"

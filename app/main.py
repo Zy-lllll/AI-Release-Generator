@@ -72,7 +72,9 @@ def health() -> dict:
         "status": "ok",
         "github_token": bool(config.GITHUB_TOKEN),
         "ai_key": bool(config.AI_API_KEY),
+        "ai_provider": config.AI_PROVIDER,
         "ai_model": config.AI_MODEL,
+        "ai_base_url": config.AI_BASE_URL,
     }
 
 
