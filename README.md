@@ -131,9 +131,11 @@ cloudflared tunnel --url http://localhost:8000
 |---|---|---|
 | `GITHUB_TOKEN` | 建议 | GitHub PAT，未配置时每小时仅 60 次请求 |
 | `AI_API_KEY` | 是 | 大模型密钥 |
-| `AI_PROVIDER` | 否 | 一行切换供应商：`deepseek`（默认）/ `zhipu` / `zhipu-pro` / `qwen` |
+| `AI_PROVIDER` | 否 | 一行切换供应商：`deepseek`（默认）/ `zhipu` / `zhipu-lite` / `zhipu-pro` / `qwen` |
 | `AI_BASE_URL` | 否 | 覆盖预设接口地址（任意兼容 OpenAI 协议的服务） |
 | `AI_MODEL` | 否 | 覆盖预设模型名 |
+| `AI_DISABLE_THINKING` | 否 | 默认 1，推理类模型关掉思考（更快、不吃 token） |
+| `AI_RETRY` | 否 | 免费档「访问量过大」时的自动重试次数，默认 2 |
 | `AI_RATE_LIMIT` | 否 | 单 IP 每小时 AI 生成次数，默认 20 |
 | `DEFAULT_LIMIT` / `MAX_LIMIT` | 否 | 默认 / 最大提交条数（8 / 30） |
 | `CACHE_TTL` | 否 | 提交列表缓存秒数，默认 300 |
@@ -141,22 +143,25 @@ cloudflared tunnel --url http://localhost:8000
 ### 用免费的智谱 GLM
 
 ```env
-AI_PROVIDER=zhipu          # 自动使用 https://open.bigmodel.cn/api/paas/v4 + glm-4.5-flash
+AI_PROVIDER=zhipu          # 自动使用 https://open.bigmodel.cn/api/paas/v4 + glm-4.7-flash
 AI_API_KEY=你的智谱Key      # 在 open.bigmodel.cn → API Keys 创建
 ```
 
 申请：<https://open.bigmodel.cn/usercenter/apikeys> 注册（需手机号）→ 创建 API Key，不用绑卡。
 
-免费额度是 `glm-4.5-flash`（128K 上下文）和 `glm-4.7-flash`（200K），**限 1 并发**：
-个人用没问题，多人同时点「生成」时后面的请求会排队/失败。
+免费额度：`glm-4.7-flash`（200K 上下文，默认选它）和 `glm-4.5-flash`（128K），**限 1 并发**：
+个人用没问题，多人同时点「生成」时后面的请求会排队。高峰期偶尔返回 `1305 访问量过大`，代码里已自动重试 2 次。
+
+实测：6–8 条提交生成三版说明约 **40–70 秒**，输出格式稳定（表格、版本号都正常）。
 
 切换供应商对照：
 
 | `AI_PROVIDER` | 接口 | 模型 | 备注 |
 |---|---|---|---|
-| `deepseek` | api.deepseek.com | deepseek-chat | 便宜稳定，默认 |
-| `zhipu` | open.bigmodel.cn/api/paas/v4 | glm-4.5-flash | **免费** |
-| `zhipu-pro` | 同上 | glm-4.6 | 付费，质量更接近旗舰 |
+| `deepseek` | api.deepseek.com | deepseek-chat | 便宜稳定，默认，约 20 秒 |
+| `zhipu` | open.bigmodel.cn/api/paas/v4 | glm-4.7-flash | **免费**，200K |
+| `zhipu-lite` | 同上 | glm-4.5-flash | **免费**，128K，更快 |
+| `zhipu-pro` | 同上 | glm-4.6 | 付费，质量更高 |
 | `qwen` | dashscope 兼容模式 | qwen-plus | 阿里云百炼 |
 
 ## 8. 接口
@@ -174,6 +179,7 @@ AI_API_KEY=你的智谱Key      # 在 open.bigmodel.cn → API Keys 创建
 - 界面重做为移动端优先：安全区适配、输入框 16px 防 iOS 缩放、表格横向滚动、加载遮罩与 toast
 - 加了 PWA（manifest + service worker + 图标），可安装到桌面
 - 提交缓存 5 分钟，避免反复刷 GitHub 触发限流；AI 接口按 IP 限流，防止密钥被刷
+- 抓取改为翻页（最多 3 页 / 300 条），机器人密集的仓库（如 fastapi）也能凑够真实人工提交
 - 错误提示全部中文化（仓库不存在 / 令牌失效 / 余额不足 / 超时）
 - 修复原版 `.env` 中值前带空格导致密钥读取异常的问题（配置读取时已 strip）
 - AI 返回格式不按预期时会兜底，不再出现「提取失败」三连

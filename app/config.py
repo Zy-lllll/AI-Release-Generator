@@ -22,7 +22,8 @@ AI_API_KEY = _env("AI_API_KEY")
 # 预设：只填 AI_PROVIDER 就能切换供应商，AI_BASE_URL / AI_MODEL 可单独覆盖
 PROVIDER_PRESETS: dict[str, tuple[str, str]] = {
     "deepseek": ("https://api.deepseek.com", "deepseek-chat"),
-    "zhipu": ("https://open.bigmodel.cn/api/paas/v4", "glm-4.5-flash"),      # 免费
+    "zhipu": ("https://open.bigmodel.cn/api/paas/v4", "glm-4.7-flash"),      # 免费，200K
+    "zhipu-lite": ("https://open.bigmodel.cn/api/paas/v4", "glm-4.5-flash"), # 免费，128K
     "zhipu-pro": ("https://open.bigmodel.cn/api/paas/v4", "glm-4.6"),
     "qwen": ("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
 }
@@ -33,7 +34,9 @@ _default_base, _default_model = PROVIDER_PRESETS.get(
 )
 AI_BASE_URL = (_env("AI_BASE_URL") or _default_base).rstrip("/")
 AI_MODEL = _env("AI_MODEL") or _default_model
-AI_TIMEOUT = int(_env("AI_TIMEOUT", "90"))
+AI_TIMEOUT = int(_env("AI_TIMEOUT", "120"))
+AI_RETRY = int(_env("AI_RETRY", "2"))                    # 免费档偶发「访问量过大」时重试
+AI_DISABLE_THINKING = _env("AI_DISABLE_THINKING", "1") not in ("0", "false", "False", "")
 
 # --- 业务参数 ---
 DEFAULT_LIMIT = int(_env("DEFAULT_LIMIT", "8"))

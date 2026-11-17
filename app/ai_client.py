@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import time
 from typing import Any
 
 import requests
@@ -76,6 +77,54 @@ def _split_sections(text: str) -> dict[str, str]:
     return result
 
 
+def _call_model(payload: dict[str, Any]) -> dict[str, Any]:
+    """带重试的调用：免费档常报「访问量过大」，推理模型可能不支持 thinking 参数。"""
+    url = f"{config.AI_BASE_URL}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {config.AI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    thinking_off = payload.pop("thinking", None) is not None
+    last_error = ""
+
+    for attempt in range(max(0, config.AI_RETRY) + 1):
+        if thinking_off and attempt == 0:
+            payload["thinking"] = {"type": "disabled"}   # 只发一次，失败再去掉
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=config.AI_TIMEOUT)
+        except requests.Timeout:
+            raise AIError("大模型响应超时，请稍后重试或减少提交条数。")
+        except requests.RequestException:
+            raise AIError("无法连接大模型服务，请检查服务器网络或 AI_BASE_URL 配置。")
+
+        body = resp.text or ""
+        if resp.status_code == 200:
+            return resp.json()
+
+        if resp.status_code == 401:
+            raise AIError("大模型密钥无效，请检查 .env 中的 AI_API_KEY。")
+        if resp.status_code == 402:
+            raise AIError("大模型账户余额不足，请充值后重试。")
+
+        busy = resp.status_code == 429 or "1305" in body or "访问量过大" in body
+        if busy and attempt < config.AI_RETRY:
+            payload.pop("thinking", None)
+            last_error = "模型当前访问量过大"
+            time.sleep(2 + attempt * 2)
+            continue
+
+        if resp.status_code == 400 and "thinking" in payload:
+            payload.pop("thinking", None)     # 该模型不认这个参数，去掉重发
+            last_error = body[:200]
+            continue
+
+        if busy:
+            raise AIError("免费模型当前访问量过大，请等几秒再点「重新生成」。")
+        raise AIError(f"大模型接口报错（HTTP {resp.status_code}）：{body[:200]}")
+
+    raise AIError(f"大模型调用失败：{last_error or '请稍后重试'}")
+
+
 def generate_release_notes(commits: list[dict[str, Any]], repo_name: str = "") -> dict[str, str]:
     if not config.AI_API_KEY:
         raise AIError("服务端未配置 AI_API_KEY，请在 .env 中填入大模型密钥。")
@@ -86,7 +135,7 @@ def generate_release_notes(commits: list[dict[str, Any]], repo_name: str = "") -
     if repo_name:
         prompt = f"仓库：{repo_name}\n\n{prompt}"
 
-    payload = {
+    payload: dict[str, Any] = {
         "model": config.AI_MODEL,
         "messages": [
             {"role": "system", "content": "你是严谨的中文技术文档作者，只输出要求的 Markdown 内容。"},
@@ -95,34 +144,21 @@ def generate_release_notes(commits: list[dict[str, Any]], repo_name: str = "") -
         "temperature": 0.5,
         "stream": False,
     }
+    # 推理类模型（glm-4.5/4.6/4.7 系列）关掉思考，既快又不吃满 token
+    if config.AI_DISABLE_THINKING and config.AI_PROVIDER.startswith("zhipu"):
+        payload["thinking"] = {"type": "disabled"}
 
+    data = _call_model(payload)
     try:
-        resp = requests.post(
-            f"{config.AI_BASE_URL}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {config.AI_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=config.AI_TIMEOUT,
-        )
-    except requests.Timeout:
-        raise AIError("大模型响应超时，请稍后重试或减少提交条数。")
-    except requests.RequestException:
-        raise AIError("无法连接大模型服务，请检查服务器网络或 AI_BASE_URL 配置。")
-
-    if resp.status_code == 401:
-        raise AIError("大模型密钥无效，请检查 .env 中的 AI_API_KEY。")
-    if resp.status_code == 402:
-        raise AIError("大模型账户余额不足，请充值后重试。")
-    if resp.status_code == 429:
-        raise AIError("大模型调用过于频繁，请稍后再试。")
-    if resp.status_code != 200:
-        raise AIError(f"大模型接口报错（HTTP {resp.status_code}）：{resp.text[:200]}")
-
-    try:
-        content = resp.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, ValueError):
+        message = data["choices"][0]["message"]
+        content = (message.get("content") or "").strip()
+    except (KeyError, IndexError, AttributeError):
         raise AIError("大模型返回内容解析失败，请重试。")
+
+    if not content:
+        reasoning = (message.get("reasoning_content") or "").strip()
+        if reasoning:
+            raise AIError("模型把 token 全用在思考上了，请点「重新生成」再试一次。")
+        raise AIError("模型返回了空内容，请点「重新生成」再试一次。")
 
     return _split_sections(content)

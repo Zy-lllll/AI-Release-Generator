@@ -75,6 +75,7 @@ def fetch_repo_info(owner: str, repo: str) -> dict[str, Any]:
 
 
 def fetch_commits(owner: str, repo: str, limit: int = 8) -> list[dict[str, Any]]:
+    """翻页抓取，直到攒够 limit 条人工提交（有些仓库前几十条全是机器人）。"""
     key = f"{owner.lower()}/{repo.lower()}/{limit}"
     now = time.time()
 
@@ -83,43 +84,56 @@ def fetch_commits(owner: str, repo: str, limit: int = 8) -> list[dict[str, Any]]
         if hit and now - hit[0] < config.CACHE_TTL:
             return hit[1]
 
-    try:
-        resp = requests.get(
-            f"{config.GITHUB_API}/repos/{owner}/{repo}/commits",
-            headers=_headers(),
-            params={"per_page": max(limit * 4, 30)},
-            timeout=20,
-        )
-    except requests.RequestException:
-        raise GitHubError("连接 GitHub 失败，请检查服务器网络（国内服务器可能需要代理）。")
-
-    if resp.status_code != 200:
-        raise GitHubError(_friendly_error(resp.status_code, owner, repo))
-
     commits: list[dict[str, Any]] = []
-    for item in resp.json():
-        commit = item.get("commit") or {}
-        message = (commit.get("message") or "").split("\n")[0].strip()
-        author_name = ((commit.get("author") or {}).get("name") or "").strip()
-        login = ((item.get("author") or {}).get("login") or "").strip()
-        haystack = f"{author_name} {login} {message}".lower()
+    per_page = 100
+    max_pages = 3
 
-        if any(word in haystack for word in SKIP_KEYWORDS):
-            continue
-        if not message:
-            continue
+    for page in range(1, max_pages + 1):
+        try:
+            resp = requests.get(
+                f"{config.GITHUB_API}/repos/{owner}/{repo}/commits",
+                headers=_headers(),
+                params={"per_page": per_page, "page": page},
+                timeout=20,
+            )
+        except requests.RequestException:
+            raise GitHubError("连接 GitHub 失败，请检查服务器网络（国内服务器可能需要代理）。")
 
-        commits.append(
-            {
-                "author": login or author_name or "未知作者",
-                "date": (commit.get("author") or {}).get("date", ""),
-                "message": message,
-                "url": item.get("html_url", ""),
-                "sha": (item.get("sha") or "")[:7],
-            }
-        )
-        if len(commits) >= limit:
+        if resp.status_code != 200:
+            raise GitHubError(_friendly_error(resp.status_code, owner, repo))
+
+        batch = resp.json()
+        if not isinstance(batch, list) or not batch:
             break
+
+        for item in batch:
+            commit = item.get("commit") or {}
+            message = (commit.get("message") or "").split("\n")[0].strip()
+            author_name = ((commit.get("author") or {}).get("name") or "").strip()
+            login = ((item.get("author") or {}).get("login") or "").strip()
+            haystack = f"{author_name} {login} {message}".lower()
+
+            if not message:
+                continue
+            if any(word in haystack for word in SKIP_KEYWORDS):
+                continue
+
+            commits.append(
+                {
+                    "author": login or author_name or "未知作者",
+                    "date": (commit.get("author") or {}).get("date", ""),
+                    "message": message,
+                    "url": item.get("html_url", ""),
+                    "sha": (item.get("sha") or "")[:7],
+                }
+            )
+            if len(commits) >= limit:
+                break
+
+        if len(commits) >= limit or len(batch) < per_page:
+            break
+
+    commits = commits[:limit]
 
     with _cache_lock:
         _cache[key] = (now, commits)
